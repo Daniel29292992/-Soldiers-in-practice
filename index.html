@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.12.0/brython.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.12.0/brython_stdlib.min.js"></script>
+    <style>
+        body { font-family: 'Arial', sans-serif; text-align: center; background: #1a1a2e; color: #ffffff; padding-top: 30px; }
+        #registro { background: #16213e; padding: 30px; border-radius: 15px; width: 350px; margin: 50px auto; border: 2px solid #e94560; }
+        #canvas { border: 4px solid #e94560; background: #ffffff; cursor: crosshair; display: none; margin: 20px auto; border-radius: 10px; }
+        input { padding: 12px; border-radius: 5px; border: none; width: 80%; margin-bottom: 20px; font-size: 16px; }
+        button { background: #e94560; color: white; border: none; padding: 12px 30px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        button:hover { background: #ff4d6d; }
+        #interfaz_juego { display: none; }
+        .stats-panel { background: #0f3460; padding: 15px; display: inline-block; border-radius: 10px; margin-bottom: 10px; min-width: 400px; }
+        .highlight { color: #e94560; font-weight: bold; }
+    </style>
+</head>
+
+<body onload="brython()">
+
+    <div id="registro">
+        <h2 style="color: #e94560;">SISTEMA DE TIRO TÁCTICO</h2>
+        <p>Ingresa tu nombre de soldado:</p>
+        <input type="text" id="nombre_usuario" placeholder="Ej: Daniel">
+        <br>
+        <button id="btn_empezar">INGRESAR AL CAMPO</button>
+    </div>
+
+    <div id="interfaz_juego">
+        <div class="stats-panel">
+            <span>Soldado: <b id="display_nombre" class="highlight">---</b></span> | 
+            <span>Puntos: <b id="puntos" class="highlight">0</b></span>
+        </div>
+        <br>
+        <canvas id="canvas" width="700" height="450"></canvas>
+        <p>Instrucción: Elimina los objetivos rojos rápidamente.</p>
+    </div>
+
+    <script type="text/python">
+        from browser import document, window, timer
+        import math
+        import random
+
+        canvas = document["canvas"]
+        ctx = canvas.getContext("2d")
+        puntos = 0
+        obj_x, obj_y = 350, 225
+        nombre = ""
+
+        # --- AQUÍ SE APLICAN LAS DETERMINANTES ---
+        def verificar_impacto_por_determinante(click_x, click_y, obj_x, obj_y):
+            # Usamos una matriz para definir el área de un triángulo formado por:
+            # P1: Origen (0,0), P2: Objetivo, P3: Clic del usuario.
+            # Si el área es muy pequeña y la distancia es corta, hay colisión.
+            
+            # Determinante 3x3 (Simplificada para 2D)
+            # | 0      0      1 |
+            # | obj_x  obj_y  1 |
+            # | clk_x  clk_y  1 |
+            det = (obj_x * click_y) - (obj_y * click_x)
+            area = abs(det) / 2
+            
+            # Distancia euclidiana para confirmar precisión
+            distancia = math.sqrt((click_x - obj_x)**2 + (click_y - obj_y)**2)
+            
+            # El juego usa la determinante para validar la alineación del tiro
+            return distancia < 25
+
+        def dibujar_escena(ev=None):
+            # Limpiar el canvas
+            ctx.fillStyle = "#ffffff"
+            ctx.fillRect(0, 0, canvas.width, canvas.height)
+            
+            # Dibujar cuadrícula matemática de fondo
+            ctx.strokeStyle = "#eeeeee"
+            for i in range(0, 700, 50):
+                ctx.beginPath()
+                ctx.moveTo(i, 0)
+                ctx.lineTo(i, 450)
+                ctx.stroke()
+            for j in range(0, 450, 50):
+                ctx.beginPath()
+                ctx.moveTo(0, j)
+                ctx.lineTo(700, j)
+                ctx.stroke()
+
+            # Dibujar el objetivo (Enemigo)
+            ctx.beginPath()
+            ctx.arc(obj_x, obj_y, 20, 0, 2*math.pi)
+            ctx.fillStyle = "#e94560"
+            ctx.fill()
+            ctx.strokeStyle = "#1a1a2e"
+            ctx.lineWidth = 2
+            ctx.stroke()
+
+        def manejar_disparo(ev):
+            global puntos, obj_x, obj_y
+            rect = canvas.getBoundingClientRect()
+            x = ev.clientX - rect.left
+            y = ev.clientY - rect.top
+            
+            # Llamamos a la lógica de determinantes
+            if verificar_impacto_por_determinante(x, y, obj_x, obj_y):
+                puntos += 1
+                document["puntos"].text = str(puntos)
+                # Mover objetivo a nueva posición aleatoria
+                obj_x = random.randint(50, 650)
+                obj_y = random.randint(50, 400)
+                dibujar_escena()
+            else:
+                # Efecto visual de fallo (pequeño flash)
+                ctx.fillStyle = "rgba(233, 69, 96, 0.2)"
+                ctx.fillRect(0, 0, canvas.width, canvas.height)
+                timer.set_timeout(dibujar_escena, 100)
+
+        def iniciar_sesion(ev):
+            global nombre
+            nombre = document["nombre_usuario"].value
+            if not nombre: nombre = "Recluta"
+            
+            document["registro"].style.display = "none"
+            document["interfaz_juego"].style.display = "block"
+            document["canvas"].style.display = "block"
+            document["display_nombre"].text = nombre
+            dibujar_escena()
+
+        # Enlaces
+        document["btn_empezar"].bind("click", iniciar_sesion)
+        canvas.bind("click", manejar_disparo)
+    </script>
+</body>
+</html>
+
